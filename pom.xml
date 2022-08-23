@@ -214,8 +214,9 @@
         <!-- distribution packaging -->
         <module>distribution</module>
         <!-- Revised integration tests -->
-        <module>integration-tests-ex/it-tools</module>
-        <module>integration-tests-ex/it-image</module>
+        <module>integration-tests-ex/tools</module>
+        <module>integration-tests-ex/image</module>
+        <module>integration-tests-ex/cases</module>
     </modules>
 
     <repositories>
@@ -1205,7 +1206,8 @@
                         <exclude>org/apache/druid/benchmark/**/*</exclude>  <!-- benchmarks -->
                         <exclude>org/apache/druid/**/*Benchmark*</exclude>  <!-- benchmarks -->
                         <exclude>org/apache/druid/testing/**/*</exclude>  <!-- integration-tests -->
-                        <!-- The ITs has test code sprinkled through the module tree. Remove the following
+                        <!-- The "new" ITs put the test classes into the above testing package. However,
+                             the "old" version has them sprinked through the module tree. Remove the following
                              once the old version is retired. -->
                         <exclude>org/apache/druid/server/coordination/ServerManagerForQueryErrorTest.class</exclude>
                         <exclude>org/apache/druid/guice/SleepModule.class</exclude>
@@ -1523,7 +1525,7 @@
               <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-surefire-plugin</artifactId>
-                    <version>3.0.0-M6</version>
+                    <version>3.0.0-M7</version>
                     <configuration>
                         <!-- locale settings must be set on the command line before startup -->
                         <!-- set default options -->
