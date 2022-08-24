@@ -17,18 +17,9 @@
  * under the License.
  */
 
-package org.apache.druid.testing;
+package org.apache.druid.testsEx.categories;
 
-import com.fasterxml.jackson.annotation.JsonSubTypes;
-import com.fasterxml.jackson.annotation.JsonTypeInfo;
-import com.google.inject.Provider;
-
-@JsonTypeInfo(use = JsonTypeInfo.Id.NAME, property = "type", defaultImpl = DockerConfigProvider.class)
-@JsonSubTypes(value = {
-    @JsonSubTypes.Type(name = "docker", value = DockerConfigProvider.class),
-    @JsonSubTypes.Type(name = "configFile", value = ConfigFileConfigProvider.class)
-})
-public interface IntegrationTestingConfigProvider extends Provider<IntegrationTestingConfig>
+public class MultiStageQuery
 {
-  String PROPERTY_BASE = "druid.test.config";
+
 }

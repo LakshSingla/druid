@@ -17,25 +17,25 @@
  * under the License.
  */
 
-package org.apache.druid.msq.indexing.report;
+package org.apache.druid.testing.guice.models;
 
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.druid.indexing.common.TaskReport;
 
-@JsonTypeName(MSQTaskReport.REPORT_KEY)
-public class MSQTaskReport implements TaskReport
+@JsonTypeName(MSQTaskReportDeserializable.REPORT_KEY)
+public class MSQTaskReportDeserializable implements TaskReport
 {
   public static final String REPORT_KEY = "multiStageQuery";
 
   private final String taskId;
-  private final MSQTaskReportPayload payload;
+  private final MSQTaskReportPayloadDeserializable payload;
 
   @JsonCreator
-  public MSQTaskReport(
+  public MSQTaskReportDeserializable(
       @JsonProperty("taskId") final String taskId,
-      @JsonProperty("payload") final MSQTaskReportPayload payload
+      @JsonProperty("payload") final MSQTaskReportPayloadDeserializable payload
   )
   {
     this.taskId = taskId;

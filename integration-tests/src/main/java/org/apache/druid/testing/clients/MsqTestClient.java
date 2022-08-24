@@ -17,14 +17,26 @@
  * under the License.
  */
 
-package org.apache.druid.testsEx.categories;
+package org.apache.druid.testing.clients;
 
-import org.apache.druid.testsEx.config.Cluster;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.inject.Inject;
+import org.apache.druid.java.util.http.client.HttpClient;
+import org.apache.druid.sql.http.SqlQuery;
+import org.apache.druid.testing.IntegrationTestingConfig;
+import org.apache.druid.testing.guice.TestClient;
 
-/**
- * Input format category. Uses the same setup as {@link BatchIndex}.
- */
-@Cluster(BatchIndex.class)
-public class InputFormat
+import javax.ws.rs.core.MediaType;
+
+public class MsqTestClient extends AbstractQueryResourceTestClient<SqlQuery>
 {
+  @Inject
+  MsqTestClient(
+      ObjectMapper jsonMapper,
+      @TestClient HttpClient httpClient,
+      IntegrationTestingConfig config
+  )
+  {
+    super(jsonMapper, null, httpClient, config.getRouterUrl(), MediaType.APPLICATION_JSON, null);
+  }
 }
