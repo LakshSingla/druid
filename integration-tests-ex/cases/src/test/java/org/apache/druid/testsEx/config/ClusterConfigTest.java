@@ -19,9 +19,19 @@
 
 package org.apache.druid.testsEx.config;
 
+import org.apache.druid.testing.IntegrationTestingConfig;
 import org.apache.druid.testsEx.config.ClusterConfig.ClusterType;
 import org.apache.druid.testsEx.config.ResolvedService.ResolvedZk;
 import org.junit.Test;
+
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.FileOutputStream;
+import java.io.OutputStreamWriter;
+import java.io.PrintWriter;
+import java.nio.charset.StandardCharsets;
+import java.util.Map;
+import java.util.Properties;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
@@ -33,17 +43,17 @@ import static org.junit.Assert.assertNotNull;
 public class ClusterConfigTest
 {
   @Test
-  public void testYaml()
+  public void testYaml() throws FileNotFoundException
   {
     ClusterConfig config = ClusterConfig.loadFromResource("/config-test/test.yaml");
     // Uncomment this line to see the full config with includes resolved.
     //System.out.println(config.resolveIncludes());
 
-    ResolvedConfig resolved = config.resolve();
+    ResolvedConfig resolved = config.resolve("Test");
     assertEquals(ClusterType.docker, resolved.type());
     assertEquals(ResolvedConfig.DEFAULT_READY_TIMEOUT_SEC, resolved.readyTimeoutSec());
     assertEquals(ResolvedConfig.DEFAULT_READY_POLL_MS, resolved.readyPollMs());
-    assertEquals(1, resolved.properties().size());
+    assertEquals(3, resolved.properties().size());
 
     ResolvedZk zk = resolved.zk();
     assertNotNull(zk);
@@ -74,5 +84,40 @@ public class ClusterConfigTest
     assertEquals("router", service.service());
     assertEquals("http://localhost:8888", service.clientUrl());
     assertEquals("http://localhost:8888", resolved.routerUrl());
+
+    File userEnv = new File(
+        new File(
+            System.getProperty("user.home"),
+            "druid-it"),
+        "Test.env");
+    try (PrintWriter out = new PrintWriter(new OutputStreamWriter(new FileOutputStream(userEnv), StandardCharsets.UTF_8))) {
+      out.println("druid_user_var=user");
+    }
+
+    System.setProperty("druid_sys_prop", "sys");
+    Map<String, Object> props = resolved.toProperties();
+    // Added from ZK section
+    assertEquals("localhost:2181", props.get("druid.zk.service.zkHosts"));
+    // Generic property
+    assertEquals("howdy", props.get("my.test.property"));
+    // Mapped from settings
+    assertEquals("myBucket", props.get("druid.test.config.cloudBucket"));
+    assertEquals("myPath", props.get("druid.test.config.cloudPath"));
+    assertEquals("secret", props.get("druid.test.config.s3AccessKey"));
+    // From settings, overridden in properties
+    assertEquals("myRegion", props.get("druid.test.config.cloudRegion"));
+    // System property
+    assertEquals("sys", props.get("druid.test.config.sys_prop"));
+    // From user override
+    assertEquals("user", props.get("druid.test.config.user_var"));
+
+    // Test plumbing through the test config
+    Properties properties = new Properties();
+    properties.putAll(props);
+    IntegrationTestingConfig testingConfig = new IntegrationTestingConfigEx(resolved, properties);
+    assertEquals("myBucket", testingConfig.getCloudBucket());
+    assertEquals("myPath", testingConfig.getCloudPath());
+    // From settings, overridden in properties
+    assertEquals("myRegion", testingConfig.getCloudRegion());
   }
 }

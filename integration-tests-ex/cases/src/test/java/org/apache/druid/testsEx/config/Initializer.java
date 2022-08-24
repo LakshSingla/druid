@@ -70,11 +70,13 @@ import org.apache.druid.metadata.storage.mysql.MySQLConnectorSslConfig;
 import org.apache.druid.metadata.storage.mysql.MySQLMetadataStorageModule;
 import org.apache.druid.server.DruidNode;
 import org.apache.druid.testing.IntegrationTestingConfig;
+import org.apache.druid.testing.IntegrationTestingConfigProvider;
 import org.apache.druid.testing.guice.TestClient;
 import org.apache.druid.testsEx.cluster.DruidClusterClient;
 import org.apache.druid.testsEx.cluster.MetastoreClient;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -132,7 +134,8 @@ public class Initializer
           .toInstance(config);
       binder
           .bind(IntegrationTestingConfig.class)
-          .toInstance(config.toIntegrationTestingConfig());
+          .to(IntegrationTestingConfigEx.class)
+          .in(LazySingleton.class);
       binder
           .bind(MetastoreClient.class)
           .in(LazySingleton.class);
@@ -265,15 +268,24 @@ public class Initializer
       property("druid.client.https.keyManagerPassword", "druid123");
       property("druid.client.https.keyStorePassword", "druid123");
 
+      // More env var bindings for properties formerly passed in via
+      // a generated config file.
+      final String base = IntegrationTestingConfigProvider.PROPERTY_BASE + ".";
+      propertyEnvVarBinding(base + "cloudBucket", "DRUID_CLOUD_BUCKET");
+      propertyEnvVarBinding(base + "cloudPath", "DRUID_CLOUD_PATH");
+      propertyEnvVarBinding(base + "s3AccessKey", "AWS_ACCESS_KEY_ID");
+      propertyEnvVarBinding(base + "s3SecretKey", "AWS_SECRET_ACCESS_KEY");
+      propertyEnvVarBinding(base + "azureContainer", "AZURE_CONTAINER");
+      propertyEnvVarBinding(base + "azureAccount", "AZURE_ACCOUNT");
+      propertyEnvVarBinding(base + "azureKey", "AZURE_KEY");
+      propertyEnvVarBinding(base + "googleBucket", "GOOGLE_BUCKET");
+      propertyEnvVarBinding(base + "googlePrefix", "GOOGLE_PREFIX");
+
       // Other defaults
       // druid.global.http.numMaxThreads avoids creating 40+ Netty threads.
       // We only ever use 1.
       property("druid.global.http.numMaxThreads", 3);
       property("druid.broker.http.numMaxThreads", 3);
-
-      // druid.test.config.dockerIp is used by some older test code. Remove
-      // it when that code is updated.
-      property("druid.test.config.dockerIp", "localhost");
     }
 
     /**
@@ -323,10 +335,7 @@ public class Initializer
 
     public Builder modules(Module...modules)
     {
-      for (Module module : modules) {
-        this.modules.add(module);
-      }
-      return this;
+      return modules(Arrays.asList(modules));
     }
 
     /**
@@ -388,7 +397,7 @@ public class Initializer
   private Initializer(Builder builder)
   {
     if (builder.configFile != null) {
-      this.clusterConfig = loadConfigFile(builder.configFile);
+      this.clusterConfig = loadConfigFile(builder.clusterName, builder.configFile);
     } else {
       this.clusterConfig = loadConfig(builder.clusterName, builder.configFile);
     }
@@ -443,13 +452,13 @@ public class Initializer
     }
     String loadName = StringUtils.format(CLUSTER_CONFIG_RESOURCE, category, configName);
     ClusterConfig config = ClusterConfig.loadFromResource(loadName);
-    return config.resolve();
+    return config.resolve(category);
   }
 
-  private static ResolvedConfig loadConfigFile(String path)
+  private static ResolvedConfig loadConfigFile(String category, String path)
   {
     ClusterConfig config = ClusterConfig.loadFromFile(path);
-    return config.resolve();
+    return config.resolve(category);
   }
 
   private static Injector makeInjector(
@@ -488,7 +497,7 @@ public class Initializer
   }
 
   /**
-   * Define test properties similar to how the server does. Property precendence
+   * Define test properties similar to how the server does. Property precedence
    * is:
    * <ul>
    * <li>System properties (highest)</li>
@@ -512,6 +521,8 @@ public class Initializer
       }
     }
     finalProperties.putAll(System.getProperties());
+    log.info("Properties:");
+    log.info(finalProperties.toString());
     return finalProperties;
   }
 
