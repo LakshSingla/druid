@@ -85,7 +85,7 @@
         <avro.version>1.9.2</avro.version>
         <!-- sql/src/main/codegen/config.fmpp is based on a file from calcite-core, and needs to be
           updated when upgrading Calcite. Refer to the top-level comments in that file for details. -->
-        <calcite.version>1.29.0</calcite.version>
+        <calcite.version>1.29.0-druid-shaded</calcite.version>
         <shaded.calcite.version>1.29.0-druid-shaded</shaded.calcite.version>
         <datasketches.version>3.0.0</datasketches.version>
         <datasketches.memory.version>2.0.0</datasketches.memory.version>
@@ -374,7 +374,7 @@
             </dependency>
             <dependency>
                 <groupId>org.apache.calcite</groupId>
-                <artifactId>calcite-core</artifactId>
+                <artifactId>calcite-core-shaded</artifactId>
                 <version>${calcite.version}</version>
                 <exclusions>
                   <exclusion>

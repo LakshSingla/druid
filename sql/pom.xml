@@ -54,7 +54,7 @@
     </dependency>
     <dependency>
       <groupId>org.apache.calcite</groupId>
-      <artifactId>calcite-core</artifactId>
+      <artifactId>calcite-core-shaded</artifactId>
       <exclusions>
         <!--
           ~ Calcite 1.15.0 uses sketches-core 0.9.0 for a profiling feature:
