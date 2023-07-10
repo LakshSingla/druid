@@ -23,6 +23,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.annotation.JsonTypeName;
 import org.apache.druid.annotations.EverythingIsNonnullByDefault;
+import org.apache.druid.error.DruidException;
 import org.apache.druid.query.aggregation.Aggregator;
 import org.apache.druid.query.aggregation.AggregatorFactory;
 import org.apache.druid.query.aggregation.BufferAggregator;
@@ -82,7 +83,7 @@ public class PassthroughAggregatorFactory extends AggregatorFactory
   @Override
   public byte[] getCacheKey()
   {
-    throw new UnsupportedOperationException();
+    throw generateUnsupportedMethodException("getCacheKey");
   }
 
   @Override
@@ -94,21 +95,21 @@ public class PassthroughAggregatorFactory extends AggregatorFactory
   @Override
   public BufferAggregator factorizeBuffered(ColumnSelectorFactory metricFactory)
   {
-    throw new UnsupportedOperationException();
+    throw DruidException.defensive("");
   }
 
   @Override
   @SuppressWarnings("rawtypes")
   public Comparator getComparator()
   {
-    throw new UnsupportedOperationException();
+    throw generateUnsupportedMethodException("getComparator");
   }
 
   @Nullable
   @Override
   public Object combine(@Nullable Object lhs, @Nullable Object rhs)
   {
-    throw new UnsupportedOperationException();
+    throw generateUnsupportedMethodException("combine");
   }
 
   @Override
@@ -120,20 +121,20 @@ public class PassthroughAggregatorFactory extends AggregatorFactory
   @Override
   public List<AggregatorFactory> getRequiredColumns()
   {
-    throw new UnsupportedOperationException();
+    throw generateUnsupportedMethodException("getRequiredColumns");
   }
 
   @Override
   public Object deserialize(Object object)
   {
-    throw new UnsupportedOperationException();
+    throw generateUnsupportedMethodException("deserialize");
   }
 
   @Nullable
   @Override
   public Object finalizeComputation(@Nullable Object object)
   {
-    throw new UnsupportedOperationException();
+    throw generateUnsupportedMethodException("finalizeComputation");
   }
 
   @Override
@@ -149,12 +150,6 @@ public class PassthroughAggregatorFactory extends AggregatorFactory
   }
 
   @Override
-  public int guessAggregatorHeapFootprint(long rows)
-  {
-    return ESTIMATED_HEAP_FOOTPRINT;
-  }
-
-  @Override
   public AggregatorFactory withName(String newName)
   {
     return new PassthroughAggregatorFactory(newName, complexTypeName);
@@ -163,7 +158,7 @@ public class PassthroughAggregatorFactory extends AggregatorFactory
   @Override
   public int getMaxIntermediateSize()
   {
-    throw new UnsupportedOperationException();
+    return ESTIMATED_HEAP_FOOTPRINT;
   }
 
   @Override
@@ -176,6 +171,16 @@ public class PassthroughAggregatorFactory extends AggregatorFactory
   public ColumnType getResultType()
   {
     return ColumnType.ofComplex(complexTypeName);
+  }
+
+  private static DruidException generateUnsupportedMethodException(final String methodName)
+  {
+    return DruidException.defensive(
+        "PassthroughAggregatorFactory does not support the method [%s]. PassthroughAggregatorFactory is Druid's "
+        + "way of storing complex types into segments without finalizing them. Treat this exception as a bug if it is "
+        + "encountered while using Druid",
+        methodName
+    );
   }
 
   @Override
