@@ -44,7 +44,7 @@ public class S3DataSegmentPusherConfig
   private boolean useS3aSchema = false;
 
   @JsonProperty
-  private boolean useS3MultipartTransfer = false;
+  private boolean useS3MultipartTransfer = true;
 
   public void setBucket(String bucket)
   {
