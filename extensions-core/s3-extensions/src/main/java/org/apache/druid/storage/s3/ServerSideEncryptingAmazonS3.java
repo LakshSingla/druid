@@ -249,7 +249,7 @@ public class ServerSideEncryptingAmazonS3
   public static class Builder
   {
     private AmazonS3ClientBuilder amazonS3ClientBuilder = AmazonS3Client.builder();
-    private S3StorageConfig s3StorageConfig = new S3StorageConfig(new NoopServerSideEncryption(), null);
+    private S3StorageConfig s3StorageConfig = new S3StorageConfig(new NoopServerSideEncryption());
 
     public Builder setAmazonS3ClientBuilder(AmazonS3ClientBuilder amazonS3ClientBuilder)
     {
