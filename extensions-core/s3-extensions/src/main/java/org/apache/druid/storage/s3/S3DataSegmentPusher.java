@@ -98,7 +98,14 @@ public class S3DataSegmentPusher implements DataSegmentPusher
     try {
       return S3Utils.retryS3Operation(
           () -> {
-            S3Utils.uploadFileIfPossible(s3Client, config.getDisableAcl(), config.getBucket(), s3Path, zipOutFile);
+            S3Utils.uploadFileIfPossible(
+                s3Client,
+                config.getDisableAcl(),
+                config.getBucket(),
+                s3Path,
+                zipOutFile,
+                config.isUseS3MultipartTransfer()
+            );
 
             return outSegment;
           }

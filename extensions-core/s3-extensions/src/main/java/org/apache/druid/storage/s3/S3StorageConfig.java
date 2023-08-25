@@ -36,17 +36,28 @@ public class S3StorageConfig
   @JsonProperty("sse")
   private final ServerSideEncryption serverSideEncryption;
 
+  @JsonProperty("useTransferManager")
+  private final boolean useTransferManager;
+
   @JsonCreator
   public S3StorageConfig(
-      @JsonProperty("sse") ServerSideEncryption serverSideEncryption
+      @JsonProperty("sse") ServerSideEncryption serverSideEncryption,
+      @JsonProperty("useTransferManager") Boolean useTransferManager
   )
   {
     this.serverSideEncryption = serverSideEncryption == null ? new NoopServerSideEncryption() : serverSideEncryption;
+    this.useTransferManager = useTransferManager == null || useTransferManager;
   }
 
   @JsonProperty("sse")
   public ServerSideEncryption getServerSideEncryption()
   {
     return serverSideEncryption;
+  }
+
+  @JsonProperty("useTransferManager")
+  public boolean isUseTransferManager()
+  {
+    return useTransferManager;
   }
 }

@@ -43,6 +43,9 @@ public class S3DataSegmentPusherConfig
   @JsonProperty
   private boolean useS3aSchema = false;
 
+  @JsonProperty
+  private boolean useS3MultipartTransfer = false;
+
   public void setBucket(String bucket)
   {
     this.bucket = bucket;
@@ -91,5 +94,15 @@ public class S3DataSegmentPusherConfig
   public int getMaxListingLength()
   {
     return maxListingLength;
+  }
+
+  public boolean isUseS3MultipartTransfer()
+  {
+    return useS3MultipartTransfer;
+  }
+
+  public void setUseS3MultipartTransfer(boolean useS3MultipartTransfer)
+  {
+    this.useS3MultipartTransfer = useS3MultipartTransfer;
   }
 }

@@ -23,6 +23,7 @@ import com.amazonaws.SdkClientException;
 import com.amazonaws.services.s3.AmazonS3;
 import com.amazonaws.services.s3.AmazonS3Client;
 import com.amazonaws.services.s3.AmazonS3ClientBuilder;
+import com.amazonaws.services.s3.internal.ServiceUtils;
 import com.amazonaws.services.s3.model.AbortMultipartUploadRequest;
 import com.amazonaws.services.s3.model.AccessControlList;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
@@ -43,7 +44,15 @@ import com.amazonaws.services.s3.model.PutObjectResult;
 import com.amazonaws.services.s3.model.S3Object;
 import com.amazonaws.services.s3.model.UploadPartRequest;
 import com.amazonaws.services.s3.model.UploadPartResult;
+import com.amazonaws.services.s3.transfer.Download;
+import com.amazonaws.services.s3.transfer.TransferManager;
+import com.amazonaws.services.s3.transfer.TransferManagerBuilder;
+import com.amazonaws.services.s3.transfer.Upload;
+import com.amazonaws.services.s3.transfer.internal.TransferManagerUtils;
+import com.amazonaws.services.s3.transfer.model.UploadResult;
+import org.apache.druid.error.DruidException;
 import org.apache.druid.java.util.common.ISE;
+import org.apache.druid.java.util.common.logger.Logger;
 
 import java.io.File;
 
@@ -58,6 +67,8 @@ import java.io.File;
  */
 public class ServerSideEncryptingAmazonS3
 {
+  private static final Logger log = new Logger(ServerSideEncryptingAmazonS3.class);
+
   public static Builder builder()
   {
     return new Builder();
@@ -65,11 +76,15 @@ public class ServerSideEncryptingAmazonS3
 
   private final AmazonS3 amazonS3;
   private final ServerSideEncryption serverSideEncryption;
+  private final TransferManager transferManager;
 
   public ServerSideEncryptingAmazonS3(AmazonS3 amazonS3, ServerSideEncryption serverSideEncryption)
   {
     this.amazonS3 = amazonS3;
     this.serverSideEncryption = serverSideEncryption;
+    this.transferManager = TransferManagerBuilder.standard()
+                                                 .withS3Client(amazonS3)
+                                                 .build();
   }
 
   public boolean doesObjectExist(String bucket, String objectName)
@@ -118,6 +133,28 @@ public class ServerSideEncryptingAmazonS3
     return amazonS3.getObject(serverSideEncryption.decorate(request));
   }
 
+  public void downloadToFile(File file, GetObjectRequest request)
+  {
+    Download download = transferManager.download(
+        serverSideEncryption.decorate(request),
+        file
+    );
+    try {
+      download.waitForCompletion();
+    }
+    catch (InterruptedException e) {
+      throw DruidException
+          .defensive()
+          .build(
+              e,
+              "Process interrupted while trying to download object at bucket [%s], key [%s] to file [%s]",
+              request.getBucketName(),
+              request.getKey(),
+              file.getAbsolutePath()
+          );
+    }
+  }
+
   public PutObjectResult putObject(String bucket, String key, File file)
   {
     return putObject(new PutObjectRequest(bucket, key, file));
@@ -126,6 +163,37 @@ public class ServerSideEncryptingAmazonS3
   public PutObjectResult putObject(PutObjectRequest request)
   {
     return amazonS3.putObject(serverSideEncryption.decorate(request));
+  }
+
+  public void putObjectUsingTransferManager(PutObjectRequest request)
+  {
+    Upload upload = transferManager.upload(serverSideEncryption.decorate(request));
+    try {
+      UploadResult result = upload.waitForUploadResult();
+      log.info("Upload complete [%s], [%s]", result.getBucketName(), result.getKey());
+    }
+    catch (InterruptedException e) {
+      if (request.getFile() != null) {
+        throw DruidException
+            .defensive()
+            .build(
+                e,
+                "Process interrupted while trying to upload file [%s] to bucket [%s] at path [%s]",
+                request.getFile(),
+                request.getBucketName(),
+                request.getKey()
+            );
+      } else {
+        throw DruidException
+            .defensive()
+            .build(
+                e,
+                "Process interrupted while trying to upload to bucket [%s] at path [%s]",
+                request.getBucketName(),
+                request.getKey()
+            );
+      }
+    }
   }
 
   public CopyObjectResult copyObject(CopyObjectRequest request)
@@ -168,10 +236,20 @@ public class ServerSideEncryptingAmazonS3
     return amazonS3.completeMultipartUpload(request);
   }
 
+  public boolean isDownloadParallelizable(GetObjectRequest getObjectRequest)
+  {
+    GetObjectRequest decoratedGetObjectRequest = serverSideEncryption.decorate(getObjectRequest);
+    return TransferManagerUtils.isDownloadParallelizable(
+        amazonS3,
+        decoratedGetObjectRequest,
+        ServiceUtils.getPartCount(decoratedGetObjectRequest, amazonS3)
+    );
+  }
+
   public static class Builder
   {
     private AmazonS3ClientBuilder amazonS3ClientBuilder = AmazonS3Client.builder();
-    private S3StorageConfig s3StorageConfig = new S3StorageConfig(new NoopServerSideEncryption());
+    private S3StorageConfig s3StorageConfig = new S3StorageConfig(new NoopServerSideEncryption(), null);
 
     public Builder setAmazonS3ClientBuilder(AmazonS3ClientBuilder amazonS3ClientBuilder)
     {

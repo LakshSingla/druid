@@ -22,6 +22,7 @@ package org.apache.druid.storage.s3;
 import com.amazonaws.AmazonClientException;
 import com.amazonaws.AmazonServiceException;
 import com.amazonaws.services.s3.model.AmazonS3Exception;
+import com.amazonaws.services.s3.model.GetObjectRequest;
 import com.amazonaws.services.s3.model.ObjectMetadata;
 import com.amazonaws.services.s3.model.S3Object;
 import com.google.common.base.Predicate;
@@ -43,8 +44,10 @@ import org.apache.druid.segment.loading.SegmentLoadingException;
 import org.apache.druid.segment.loading.URIDataPuller;
 import org.apache.druid.utils.CompressionUtils;
 
+import javax.annotation.Nullable;
 import javax.tools.FileObject;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -52,6 +55,7 @@ import java.io.OutputStream;
 import java.io.Reader;
 import java.io.Writer;
 import java.net.URI;
+import java.util.UUID;
 
 /**
  * A data segment puller that also hanldes URI data pulls.
@@ -64,11 +68,18 @@ public class S3DataSegmentPuller implements URIDataPuller
   protected static final String KEY = "key";
 
   protected final ServerSideEncryptingAmazonS3 s3Client;
+  protected final boolean useMultipartTransfer;
+  protected final File tempDir;
 
   @Inject
-  public S3DataSegmentPuller(ServerSideEncryptingAmazonS3 s3Client)
+  public S3DataSegmentPuller(
+      final ServerSideEncryptingAmazonS3 s3Client,
+      final S3DataSegmentPusherConfig pusherConfig
+  )
   {
     this.s3Client = s3Client;
+    this.useMultipartTransfer = pusherConfig.isUseS3MultipartTransfer();
+    this.tempDir = FileUtils.createTempDir("s3DataSegmentPuller");
   }
 
   FileUtils.FileCopyResult getSegmentFiles(final CloudObjectLocation s3Coords, final File outDir)
@@ -157,7 +168,11 @@ public class S3DataSegmentPuller implements URIDataPuller
 
     return new FileObject()
     {
+
+      @Nullable
       S3Object s3Object = null;
+
+      @Nullable
       ObjectMetadata objectMetadata = null;
 
       @Override
@@ -180,15 +195,45 @@ public class S3DataSegmentPuller implements URIDataPuller
       public InputStream openInputStream() throws IOException
       {
         try {
-          if (s3Object == null) {
-            // lazily promote to full GET
-            s3Object = s3Client.getObject(coords.getBucket(), coords.getPath());
-          }
-
-          final InputStream in = s3Object.getObjectContent();
+          final InputStream in;
           final Closer closer = Closer.create();
-          closer.register(in);
-          closer.register(s3Object);
+          final GetObjectRequest getObjectRequest = new GetObjectRequest(coords.getBucket(), coords.getPath());
+
+          if (!useMultipartTransfer) {
+            if (s3Object == null) {
+              // lazily promote to full GET
+              s3Object = s3Client.getObject(getObjectRequest);
+            }
+            in = s3Object.getObjectContent();
+            closer.register(in);
+            closer.register(s3Object);
+
+          } else {
+            File file = new File(tempDir.getAbsolutePath(), UUID.randomUUID().toString());
+            boolean parallelizable = s3Client.isDownloadParallelizable(getObjectRequest);
+            if (parallelizable) {
+              log.info(
+                  "Object at bucket [%s], path [%s] will be downloaded using parallel multipart downloads",
+                  coords.getBucket(),
+                  coords.getPath()
+              );
+            } else {
+              log.info(
+                  "Object at bucket [%s], path [%s] cannot be downloaded using parallel multipart downloads. "
+                  + "It will be downloaded sequentially",
+                  coords.getBucket(),
+                  coords.getPath()
+              );
+            }
+            s3Client.downloadToFile(file, getObjectRequest);
+            in = new FileInputStream(file);
+            closer.register(() -> {
+              if (!file.delete()) {
+                log.warn("Unable to delete file [%s] from temporary storage", file.getAbsolutePath());
+              }
+            });
+            closer.register(in);
+          }
 
           return new FilterInputStream(in)
           {

@@ -306,14 +306,6 @@ public class S3Utils
     log.info("Deleted %d files", keysToDelete.size());
   }
 
-  /**
-   * Uploads a file to S3 if possible. First trying to set ACL to give the bucket owner full control of the file before uploading.
-   *
-   * @param service    S3 client
-   * @param disableAcl true if ACL shouldn't be set for the file
-   * @param key        The key under which to store the new object.
-   * @param file       The path of the file to upload to Amazon S3.
-   */
   static void uploadFileIfPossible(
       ServerSideEncryptingAmazonS3 service,
       boolean disableAcl,
@@ -322,13 +314,40 @@ public class S3Utils
       File file
   )
   {
+    uploadFileIfPossible(service, disableAcl, bucket, key, file, false);
+  }
+
+
+  /**
+   * Uploads a file to S3 if possible. First trying to set ACL to give the bucket owner full control of the file before uploading.
+   *
+   * @param service               S3 client
+   * @param disableAcl            true if ACL shouldn't be set for the file
+   * @param key                   The key under which to store the new object.
+   * @param file                  The path of the file to upload to Amazon S3.
+   * @param useMultipartTransfer  Whether to upload file using multipart upload
+   */
+  static void uploadFileIfPossible(
+      ServerSideEncryptingAmazonS3 service,
+      boolean disableAcl,
+      String bucket,
+      String key,
+      File file,
+      boolean useMultipartTransfer
+  )
+  {
     final PutObjectRequest putObjectRequest = new PutObjectRequest(bucket, key, file);
 
     if (!disableAcl) {
       putObjectRequest.setAccessControlList(S3Utils.grantFullControlToBucketOwner(service, bucket));
     }
     log.info("Pushing [%s] to bucket[%s] and key[%s].", file, bucket, key);
-    service.putObject(putObjectRequest);
+
+    if (!useMultipartTransfer) {
+      service.putObject(putObjectRequest);
+    } else {
+      service.putObjectUsingTransferManager(putObjectRequest);
+    }
   }
 
   @Nullable
