@@ -21,6 +21,8 @@ package org.apache.druid.query.groupby;
 
 import com.fasterxml.jackson.core.JsonGenerator;
 import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
+import com.fasterxml.jackson.core.ObjectCodec;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationContext;
 import com.fasterxml.jackson.databind.JsonDeserializer;
@@ -485,7 +487,24 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<ResultRow, GroupB
           final Row row = jp.readValueAs(Row.class);
           return ResultRow.fromLegacyRow(row, query);
         } else {
-          return ResultRow.of(jp.readValueAs(Object[].class));
+          Object[] objectArray = new Object[query.getResultRowSizeWithPostAggregators()];
+
+          if (!jp.isExpectedStartArrayToken()) {
+            throw DruidException.defensive("Expected start token, received [%s]", jp.currentToken());
+          }
+
+          ObjectCodec codec = jp.getCodec();
+
+          jp.nextToken();
+
+          int numObjects = 0;
+          while (jp.currentToken() != JsonToken.END_ARRAY) {
+            Object val = codec.readValue(jp, Object.class);
+            objectArray[numObjects] = val;
+            jp.nextToken();
+            ++numObjects;
+          }
+          return ResultRow.of(objectArray);
         }
       }
     };
