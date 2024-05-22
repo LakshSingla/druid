@@ -75,7 +75,10 @@ import org.apache.druid.query.dimension.DimensionSpec;
 import org.apache.druid.query.extraction.ExtractionFn;
 import org.apache.druid.segment.Cursor;
 import org.apache.druid.segment.DimensionHandlerUtils;
+import org.apache.druid.segment.column.ColumnType;
+import org.apache.druid.segment.column.NullableTypeStrategy;
 import org.apache.druid.segment.column.RowSignature;
+import org.apache.druid.segment.column.ValueType;
 import org.joda.time.DateTime;
 
 import java.io.Closeable;
@@ -480,6 +483,8 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<ResultRow, GroupB
     // Deserializer that can deserialize either array- or map-based rows.
     final JsonDeserializer<ResultRow> deserializer = new JsonDeserializer<ResultRow>()
     {
+      final Class<?>[] dimensionClasses = createDimensionClasses();
+
       @Override
       public ResultRow deserialize(final JsonParser jp, final DeserializationContext ctxt) throws IOException
       {
@@ -499,14 +504,41 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<ResultRow, GroupB
 
           int numObjects = 0;
           while (jp.currentToken() != JsonToken.END_ARRAY) {
-            Object val = codec.readValue(jp, Object.class);
-            objectArray[numObjects] = val;
+            if (numObjects >= query.getResultRowDimensionStart() && numObjects < query.getResultRowAggregatorStart()) {
+              objectArray[numObjects] = codec.readValue(jp, dimensionClasses[numObjects - query.getResultRowDimensionStart()]);
+            } else {
+              objectArray[numObjects] = codec.readValue(jp, Object.class);
+            }
             jp.nextToken();
             ++numObjects;
           }
           return ResultRow.of(objectArray);
         }
       }
+
+      private Class<?>[] createDimensionClasses()
+      {
+        final List<DimensionSpec> queryDimensions = query.getDimensions();
+        final Class<?>[] classes = new Class[queryDimensions.size()];
+        for (int i = 0; i < queryDimensions.size(); ++i) {
+          final ColumnType dimensionOutputType = queryDimensions.get(i).getOutputType();
+          if (dimensionOutputType.is(ValueType.COMPLEX)) {
+            NullableTypeStrategy nullableTypeStrategy = dimensionOutputType.getNullableStrategy();
+            if (!nullableTypeStrategy.groupable()) {
+              throw DruidException.defensive(
+                  "Ungroupable dimension [%s] with type [%s] found in the query.",
+                  queryDimensions.get(i).getDimension(),
+                  dimensionOutputType
+              );
+            }
+            classes[i] = dimensionOutputType.getNullableStrategy().complexDimensionType();
+          } else {
+            classes[i] = Object.class;
+          }
+        }
+        return classes;
+      }
+
     };
 
     class GroupByResultRowModule extends SimpleModule
