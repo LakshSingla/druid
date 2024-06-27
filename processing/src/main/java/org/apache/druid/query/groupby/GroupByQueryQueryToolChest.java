@@ -817,6 +817,8 @@ public class GroupByQueryQueryToolChest extends QueryToolChest<ResultRow, GroupB
                                         ? FrameWriterUtils.replaceUnknownTypesWithNestedColumns(rowSignature)
                                         : rowSignature;
 
+    FrameCursorUtils.throwIfColumnsHaveUnknownType(modifiedRowSignature);
+
     FrameWriterFactory frameWriterFactory = FrameWriters.makeFrameWriterFactory(
         FrameType.COLUMNAR,
         memoryAllocatorFactory,

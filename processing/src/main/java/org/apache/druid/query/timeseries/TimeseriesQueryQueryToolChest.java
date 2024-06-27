@@ -486,6 +486,9 @@ public class TimeseriesQueryQueryToolChest extends QueryToolChest<Result<Timeser
     RowSignature modifiedRowSignature = useNestedForUnknownTypes
                                         ? FrameWriterUtils.replaceUnknownTypesWithNestedColumns(rowSignature)
                                         : rowSignature;
+
+    FrameCursorUtils.throwIfColumnsHaveUnknownType(modifiedRowSignature);
+
     FrameWriterFactory frameWriterFactory = FrameWriters.makeFrameWriterFactory(
         FrameType.COLUMNAR,
         memoryAllocatorFactory,
