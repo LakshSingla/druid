@@ -334,7 +334,16 @@ public class MSQTestBase extends BaseCalciteQueryTest
   private SegmentCacheManager segmentCacheManager;
 
   private TestGroupByBuffers groupByBuffers;
-  protected final WorkerMemoryParameters workerMemoryParameters = Mockito.spy(makeTestWorkerMemoryParameters());
+  protected final WorkerMemoryParameters workerMemoryParameters = Mockito.spy(
+      WorkerMemoryParameters.createInstance(
+          WorkerMemoryParameters.PROCESSING_MINIMUM_BYTES * 50,
+          2,
+          10,
+          2,
+          1,
+          0
+      )
+  );
 
   protected static class MSQBaseComponentSupplier extends StandardComponentSupplier
   {
@@ -744,19 +753,6 @@ public class MSQTestBase extends BaseCalciteQueryTest
     InsertLockPreemptedFaultTest.LockPreemptedHelper.preempt(false);
 
     return mapper;
-  }
-
-  public static WorkerMemoryParameters makeTestWorkerMemoryParameters()
-  {
-    return WorkerMemoryParameters.createInstance(
-        WorkerMemoryParameters.PROCESSING_MINIMUM_BYTES * 50,
-        2,
-        10,
-        1,
-        2,
-        1,
-        0
-    );
   }
 
   private String runMultiStageQuery(String query, Map<String, Object> context)

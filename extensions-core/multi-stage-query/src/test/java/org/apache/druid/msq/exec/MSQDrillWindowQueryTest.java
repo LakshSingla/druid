@@ -28,7 +28,6 @@ import org.apache.druid.msq.exec.MSQDrillWindowQueryTest.DrillWindowQueryMSQComp
 import org.apache.druid.msq.sql.MSQTaskSqlEngine;
 import org.apache.druid.msq.test.CalciteMSQTestsHelper;
 import org.apache.druid.msq.test.ExtractResultsFactory;
-import org.apache.druid.msq.test.MSQTestBase;
 import org.apache.druid.msq.test.MSQTestOverlordServiceClient;
 import org.apache.druid.msq.test.MSQTestTaskActionClient;
 import org.apache.druid.msq.test.VerifyMSQSupportedNativeQueriesPredicate;
@@ -64,7 +63,15 @@ public class MSQDrillWindowQueryTest extends DrillWindowQueryTest
         Injector injector
     )
     {
-      final WorkerMemoryParameters workerMemoryParameters = MSQTestBase.makeTestWorkerMemoryParameters();
+      final WorkerMemoryParameters workerMemoryParameters =
+          WorkerMemoryParameters.createInstance(
+              WorkerMemoryParameters.PROCESSING_MINIMUM_BYTES * 50,
+              2,
+              10,
+              2,
+              0,
+              0
+          );
       final MSQTestOverlordServiceClient indexingServiceClient = new MSQTestOverlordServiceClient(
           queryJsonMapper,
           injector,

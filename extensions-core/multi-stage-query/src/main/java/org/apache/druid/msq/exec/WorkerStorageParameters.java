@@ -70,13 +70,11 @@ public class WorkerStorageParameters
 
   public static WorkerStorageParameters createProductionInstance(
       final Injector injector,
-      final OutputChannelMode outputChannelMode
+      final boolean isIntermediateSuperSorterStorageEnabled
   )
   {
     long tmpStorageBytesPerTask = injector.getInstance(TaskConfig.class).getTmpStorageBytesPerTask();
-
-    // If durable storage is enabled, then super sorter intermediate storage should be enabled as well.
-    return createInstance(tmpStorageBytesPerTask, outputChannelMode.isDurable());
+    return createInstance(tmpStorageBytesPerTask, isIntermediateSuperSorterStorageEnabled);
   }
 
   @VisibleForTesting

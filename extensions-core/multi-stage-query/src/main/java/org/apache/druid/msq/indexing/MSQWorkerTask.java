@@ -33,13 +33,10 @@ import org.apache.druid.indexing.common.actions.TaskActionClient;
 import org.apache.druid.indexing.common.config.TaskConfig;
 import org.apache.druid.indexing.common.task.AbstractTask;
 import org.apache.druid.indexing.common.task.Tasks;
-import org.apache.druid.java.util.common.logger.Logger;
 import org.apache.druid.msq.exec.MSQTasks;
 import org.apache.druid.msq.exec.Worker;
 import org.apache.druid.msq.exec.WorkerContext;
 import org.apache.druid.msq.exec.WorkerImpl;
-import org.apache.druid.msq.indexing.error.MSQException;
-import org.apache.druid.msq.indexing.error.MSQFaultUtils;
 import org.apache.druid.server.security.ResourceAction;
 
 import javax.annotation.Nonnull;
@@ -51,7 +48,6 @@ import java.util.Set;
 public class MSQWorkerTask extends AbstractTask
 {
   public static final String TYPE = "query_worker";
-  private static final Logger log = new Logger(MSQWorkerTask.class);
 
   private final String controllerTaskId;
   private final int workerNumber;
@@ -136,25 +132,18 @@ public class MSQWorkerTask extends AbstractTask
   }
 
   @Override
-  public TaskStatus runTask(final TaskToolbox toolbox)
+  public TaskStatus runTask(final TaskToolbox toolbox) throws Exception
   {
-    final WorkerContext context = IndexerWorkerContext.createProductionInstance(this, toolbox, injector);
+    final WorkerContext context = IndexerWorkerContext.createProductionInstance(toolbox, injector);
     worker = new WorkerImpl(this, context);
-
-    try {
-      worker.run();
-      return TaskStatus.success(context.workerId());
-    }
-    catch (MSQException e) {
-      return TaskStatus.failure(context.workerId(), MSQFaultUtils.generateMessageWithErrorCode(e.getFault()));
-    }
+    return worker.run();
   }
 
   @Override
   public void stopGracefully(TaskConfig taskConfig)
   {
     if (worker != null) {
-      worker.stop();
+      worker.stopGracefully();
     }
   }
 

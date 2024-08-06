@@ -97,7 +97,7 @@ public abstract class BaseWorkerClientImpl implements WorkerClient
         "/keyStatistics/%s/%d?sketchEncoding=%s",
         StringUtils.urlEncode(stageId.getQueryId()),
         stageId.getStageNumber(),
-        WorkerResource.SketchEncoding.OCTET_STREAM
+        WorkerChatHandler.SketchEncoding.OCTET_STREAM
     );
 
     return getClient(workerId).asyncRequest(
@@ -118,7 +118,7 @@ public abstract class BaseWorkerClientImpl implements WorkerClient
         StringUtils.urlEncode(stageId.getQueryId()),
         stageId.getStageNumber(),
         timeChunk,
-        WorkerResource.SketchEncoding.OCTET_STREAM
+        WorkerChatHandler.SketchEncoding.OCTET_STREAM
     );
 
     return getClient(workerId).asyncRequest(

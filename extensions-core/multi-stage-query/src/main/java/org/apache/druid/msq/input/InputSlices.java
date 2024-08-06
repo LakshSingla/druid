@@ -42,22 +42,6 @@ public class InputSlices
   }
 
   /**
-   * Returns all {@link StageInputSlice} from the provided list of input slices. Ignores other types of input slices.
-   */
-  public static List<StageInputSlice> allStageSlices(final List<InputSlice> slices)
-  {
-    final List<StageInputSlice> retVal = new ArrayList<>();
-
-    for (final InputSlice slice : slices) {
-      if (slice instanceof StageInputSlice) {
-        retVal.add((StageInputSlice) slice);
-      }
-    }
-
-    return retVal;
-  }
-
-  /**
    * Combines all {@link StageInputSlice#getPartitions()} from the input slices that are {@link StageInputSlice}.
    * Ignores other types of input slices.
    */
@@ -65,8 +49,10 @@ public class InputSlices
   {
     final List<ReadablePartitions> partitionsList = new ArrayList<>();
 
-    for (final StageInputSlice slice : allStageSlices(slices)) {
-      partitionsList.add(slice.getPartitions());
+    for (final InputSlice slice : slices) {
+      if (slice instanceof StageInputSlice) {
+        partitionsList.add(((StageInputSlice) slice).getPartitions());
+      }
     }
 
     return ReadablePartitions.combine(partitionsList);

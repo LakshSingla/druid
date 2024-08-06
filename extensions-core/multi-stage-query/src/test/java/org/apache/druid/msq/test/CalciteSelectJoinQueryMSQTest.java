@@ -136,7 +136,15 @@ public class CalciteSelectJoinQueryMSQTest
         Injector injector
     )
     {
-      final WorkerMemoryParameters workerMemoryParameters = MSQTestBase.makeTestWorkerMemoryParameters();
+      final WorkerMemoryParameters workerMemoryParameters =
+          WorkerMemoryParameters.createInstance(
+              WorkerMemoryParameters.PROCESSING_MINIMUM_BYTES * 50,
+              2,
+              10,
+              2,
+              0,
+              0
+          );
       final MSQTestOverlordServiceClient indexingServiceClient = new MSQTestOverlordServiceClient(
           queryJsonMapper,
           injector,

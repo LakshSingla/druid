@@ -19,8 +19,12 @@
 
 package org.apache.druid.msq.indexing;
 
-import com.google.common.util.concurrent.ListenableFuture;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.druid.frame.key.ClusterByPartitions;
+import org.apache.druid.indexer.TaskStatus;
+import org.apache.druid.indexing.common.TaskToolbox;
+import org.apache.druid.indexing.common.task.NoopTestTaskReportFileWriter;
+import org.apache.druid.jackson.DefaultObjectMapper;
 import org.apache.druid.java.util.common.ISE;
 import org.apache.druid.msq.counters.CounterSnapshotsTree;
 import org.apache.druid.msq.exec.Worker;
@@ -28,9 +32,12 @@ import org.apache.druid.msq.indexing.client.WorkerChatHandler;
 import org.apache.druid.msq.kernel.StageId;
 import org.apache.druid.msq.kernel.WorkOrder;
 import org.apache.druid.msq.statistics.ClusterByStatisticsSnapshot;
+import org.apache.druid.segment.IndexIO;
+import org.apache.druid.segment.IndexMergerV9;
+import org.apache.druid.segment.column.ColumnConfig;
+import org.apache.druid.segment.writeout.OffHeapMemorySegmentWriteOutMediumFactory;
 import org.apache.druid.server.security.AuthConfig;
 import org.apache.druid.server.security.AuthenticationResult;
-import org.apache.druid.server.security.AuthorizerMapper;
 import org.apache.druid.sql.calcite.util.CalciteTests;
 import org.junit.After;
 import org.junit.Assert;
@@ -44,16 +51,15 @@ import javax.annotation.Nullable;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.core.Response;
 import java.io.InputStream;
+import java.util.HashMap;
 
 public class WorkerChatHandlerTest
 {
   private static final StageId TEST_STAGE = new StageId("123", 0);
-  private static final String DATASOURCE = "foo";
-
   @Mock
   private HttpServletRequest req;
 
-  private AuthorizerMapper authorizerMapper;
+  private TaskToolbox toolbox;
   private AutoCloseable mocks;
 
   private final TestWorker worker = new TestWorker();
@@ -61,16 +67,29 @@ public class WorkerChatHandlerTest
   @Before
   public void setUp()
   {
-    authorizerMapper = CalciteTests.TEST_AUTHORIZER_MAPPER;
+    ObjectMapper mapper = new DefaultObjectMapper();
+    IndexIO indexIO = new IndexIO(mapper, ColumnConfig.DEFAULT);
+    IndexMergerV9 indexMerger = new IndexMergerV9(
+        mapper,
+        indexIO,
+        OffHeapMemorySegmentWriteOutMediumFactory.instance()
+    );
+
     mocks = MockitoAnnotations.openMocks(this);
     Mockito.when(req.getAttribute(AuthConfig.DRUID_AUTHENTICATION_RESULT))
            .thenReturn(new AuthenticationResult("druid", "druid", null, null));
+    TaskToolbox.Builder builder = new TaskToolbox.Builder();
+    toolbox = builder.authorizerMapper(CalciteTests.TEST_AUTHORIZER_MAPPER)
+                     .indexIO(indexIO)
+                     .indexMergerV9(indexMerger)
+                     .taskReportFileWriter(new NoopTestTaskReportFileWriter())
+                     .build();
   }
 
   @Test
   public void testFetchSnapshot()
   {
-    WorkerChatHandler chatHandler = new WorkerChatHandler(worker, authorizerMapper, DATASOURCE);
+    WorkerChatHandler chatHandler = new WorkerChatHandler(toolbox, worker);
     Assert.assertEquals(
         ClusterByStatisticsSnapshot.empty(),
         chatHandler.httpFetchKeyStatistics(TEST_STAGE.getQueryId(), TEST_STAGE.getStageNumber(), null, req)
@@ -81,7 +100,7 @@ public class WorkerChatHandlerTest
   @Test
   public void testFetchSnapshot404()
   {
-    WorkerChatHandler chatHandler = new WorkerChatHandler(worker, authorizerMapper, DATASOURCE);
+    WorkerChatHandler chatHandler = new WorkerChatHandler(toolbox, worker);
     Assert.assertEquals(
         Response.Status.BAD_REQUEST.getStatusCode(),
         chatHandler.httpFetchKeyStatistics("123", 2, null, req)
@@ -92,7 +111,7 @@ public class WorkerChatHandlerTest
   @Test
   public void testFetchSnapshotWithTimeChunk()
   {
-    WorkerChatHandler chatHandler = new WorkerChatHandler(worker, authorizerMapper, DATASOURCE);
+    WorkerChatHandler chatHandler = new WorkerChatHandler(toolbox, worker);
     Assert.assertEquals(
         ClusterByStatisticsSnapshot.empty(),
         chatHandler.httpFetchKeyStatisticsWithSnapshot(TEST_STAGE.getQueryId(), TEST_STAGE.getStageNumber(), 1, null, req)
@@ -103,7 +122,7 @@ public class WorkerChatHandlerTest
   @Test
   public void testFetchSnapshotWithTimeChunk404()
   {
-    WorkerChatHandler chatHandler = new WorkerChatHandler(worker, authorizerMapper, DATASOURCE);
+    WorkerChatHandler chatHandler = new WorkerChatHandler(toolbox, worker);
     Assert.assertEquals(
         Response.Status.BAD_REQUEST.getStatusCode(),
         chatHandler.httpFetchKeyStatisticsWithSnapshot("123", 2, 1, null, req)
@@ -114,6 +133,7 @@ public class WorkerChatHandlerTest
 
   private static class TestWorker implements Worker
   {
+
     @Override
     public String id()
     {
@@ -121,25 +141,25 @@ public class WorkerChatHandlerTest
     }
 
     @Override
-    public void run()
+    public MSQWorkerTask task()
     {
-
+      return new MSQWorkerTask("controller", "ds", 1, new HashMap<>(), 0);
     }
 
     @Override
-    public void stop()
+    public TaskStatus run()
+    {
+      return null;
+    }
+
+    @Override
+    public void stopGracefully()
     {
 
     }
 
     @Override
     public void controllerFailed()
-    {
-
-    }
-
-    @Override
-    public void awaitStop()
     {
 
     }
@@ -172,8 +192,9 @@ public class WorkerChatHandlerTest
 
     @Override
     public boolean postResultPartitionBoundaries(
-        StageId stageId,
-        ClusterByPartitions stagePartitionBoundaries
+        ClusterByPartitions stagePartitionBoundaries,
+        String queryId,
+        int stageNumber
     )
     {
       return false;
@@ -181,7 +202,7 @@ public class WorkerChatHandlerTest
 
     @Nullable
     @Override
-    public ListenableFuture<InputStream> readStageOutput(StageId stageId, int partitionNumber, long offset)
+    public InputStream readChannel(String queryId, int stageNumber, int partitionNumber, long offset)
     {
       return null;
     }

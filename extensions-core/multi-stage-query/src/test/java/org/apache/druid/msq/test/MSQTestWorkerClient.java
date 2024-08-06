@@ -80,7 +80,11 @@ public class MSQTestWorkerClient implements WorkerClient
   )
   {
     try {
-      inMemoryWorkers.get(workerTaskId).postResultPartitionBoundaries(stageId, partitionBoundaries);
+      inMemoryWorkers.get(workerTaskId).postResultPartitionBoundaries(
+          partitionBoundaries,
+          stageId.getQueryId(),
+          stageId.getStageNumber()
+      );
       return Futures.immediateFuture(null);
     }
     catch (Exception e) {
@@ -118,7 +122,8 @@ public class MSQTestWorkerClient implements WorkerClient
   )
   {
     try (InputStream inputStream =
-             inMemoryWorkers.get(workerTaskId).readStageOutput(stageId, partitionNumber, offset).get()) {
+             inMemoryWorkers.get(workerTaskId)
+                            .readChannel(stageId.getQueryId(), stageId.getStageNumber(), partitionNumber, offset)) {
       byte[] buffer = new byte[8 * 1024];
       boolean didRead = false;
       int bytesRead;
@@ -133,11 +138,12 @@ public class MSQTestWorkerClient implements WorkerClient
     catch (Exception e) {
       throw new ISE(e, "Error reading frame file channel");
     }
+
   }
 
   @Override
   public void close()
   {
-    inMemoryWorkers.forEach((k, v) -> v.stop());
+    inMemoryWorkers.forEach((k, v) -> v.stopGracefully());
   }
 }

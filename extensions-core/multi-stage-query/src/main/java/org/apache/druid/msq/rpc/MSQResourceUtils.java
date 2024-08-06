@@ -47,20 +47,4 @@ public class MSQResourceUtils
       throw new ForbiddenException(access.toString());
     }
   }
-
-  public static void authorizeQueryRequest(
-      final ResourcePermissionMapper permissionMapper,
-      final AuthorizerMapper authorizerMapper,
-      final HttpServletRequest request,
-      final String queryId
-  )
-  {
-    final List<ResourceAction> resourceActions = permissionMapper.getQueryPermissions(queryId);
-
-    Access access = AuthorizationUtils.authorizeAllResourceActions(request, resourceActions, authorizerMapper);
-
-    if (!access.isAllowed()) {
-      throw new ForbiddenException(access.toString());
-    }
-  }
 }

@@ -52,10 +52,4 @@ public class IndexerResourcePermissionMapper implements ResourcePermissionMapper
         )
     );
   }
-
-  @Override
-  public List<ResourceAction> getQueryPermissions(String queryId)
-  {
-    return getAdminPermissions();
-  }
 }
